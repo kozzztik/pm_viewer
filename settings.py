@@ -11,10 +11,12 @@ https://docs.djangoproject.com/en/4.0/ref/settings/
 """
 
 from pathlib import Path
+import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent
-
+SECRETS_JSON = str(BASE_DIR / 'secrets.json')
+os.environ.setdefault('GOOGLE_APPLICATION_CREDENTIALS', SECRETS_JSON)
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.0/howto/deployment/checklist/
@@ -25,8 +27,8 @@ SECRET_KEY = 'django-insecure-2c-k%-pg9foig(dd%a()xks^4x7et0vo_=n!s34r0%4kcrw#kd
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
-
+ALLOWED_HOSTS = ['localhost', '127.0.0.1']
+APP_PORT = 8000
 
 # Application definition
 

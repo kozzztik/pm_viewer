@@ -1,1 +1,4 @@
 /settings_local.py
+/secrets.json
+/project_settings.py
+/token.json

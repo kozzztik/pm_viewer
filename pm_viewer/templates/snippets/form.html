@@ -1,0 +1,34 @@
+<form class="form-horizontal" enctype="multipart/form-data" method="POST" action="">
+    {% csrf_token %}
+    {{ form.media }}
+    {% if form.non_field_errors %}
+        <div class="alert.alert-error">{{ form.non_field_errors }}</div>
+    {% endif %}
+    {% for hidden in form.hidden_fields %}
+        {{ hidden }}
+    {% endfor %}
+    {% for field in form.visible_fields %}
+        <fieldset class="control-group{% if field.errors %} error {% endif %}{% if field.field.required %} required {% endif %}">
+            <div class="control-label">
+                <label for="{{ field.auto_id }}">{{ field.label|capfirst }}</label>
+            </div>
+            <div class="controls">
+                {{ field }}
+                {% if field.errors %}
+                    <div class ="help-inline">{{ field.errors }}</div>
+                {% endif %}
+                {% if field.help_text %}
+                    <div class=help-block">{{ field.help_text }}</div>
+                {% endif %}
+            </div>
+        </fieldset>
+    {% endfor %}
+    {% block form_actions %}
+        <fieldset>
+            <div class="form-actions">
+                <button class="submit btn btn-primary" type="submit">Отправить</button>
+                <button class="submit btn" type="reset">Сбросить</button>
+            </div>
+        </fieldset>
+    {% endblock %}
+</form>

@@ -1,0 +1,5 @@
+django==4.0
+google-api-python-client==2.33
+google-auth
+google-auth-oauthlib==0.4.6
+google-auth-httplib2

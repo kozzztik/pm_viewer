@@ -13,8 +13,8 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
-from django.contrib import admin
-from django.urls import path
+# from django.contrib import admin
+# from django.urls import path
 from django import urls
 from django.conf import settings
 from django.conf.urls.static import static
@@ -23,7 +23,10 @@ from pm_viewer import views
 
 urlpatterns = [
     # path('admin/', admin.site.urls),
-    urls.re_path(r'$', views.Home.as_view()),
+    urls.re_path(r'$', views.Home.as_view(), name='home'),
+    urls.re_path(r'oauth_callback/$', views.OAuthCallback.as_view(),
+                 name="oauth_callback"),
+
 ]
 
 if settings.DEBUG:
