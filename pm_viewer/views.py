@@ -7,13 +7,19 @@ from django import urls
 
 from pm_viewer import forms
 from sheets_db import configuration
+from pm_viewer import models
 
 
 class Home(generic.TemplateView):
     template_name = "home.html"
 
     def get_context_data(self, **kwargs):
-        return {}
+        teams = {}
+        for member in models.TeamMember.objects.all():
+            teams.setdefault(member.team, [])
+            if member.name or member.email:
+                teams[member.team].append(member)
+        return {'teams': teams}
 
     def get(self, request, *args, **kwargs):
         if not settings.PROJECT_CONFIGURED:

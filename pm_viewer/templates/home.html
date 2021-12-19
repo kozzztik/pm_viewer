@@ -5,6 +5,24 @@ Welcome
 {% endblock %}
 
 {% block "body" %}
-welcome body
+<table class="table table-bordered table-striped">
+    <thead>
+        <tr>
+            <th>Имя</th>
+            <th>Позиция</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for team_name, members in teams.items %}
+            <tr><td colspan="2"><b>{{team_name}}</b></td> </tr>
+            {% for member in members %}
+                <tr>
+                    <td>{{ member.name }}</td>
+                    <td>{{ member.position }}</td>
+                </tr>
+            {% endfor %}
+        {% endfor %}
+    </tbody>
+</table>
 {% endblock %}
 
