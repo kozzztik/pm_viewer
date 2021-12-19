@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+{% load static %}
+<html lang="ru">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+        <meta name="author" content="http://vk.com/kozzztik" />
+        <meta name="description" content="" />
+        <meta name="keywords" content="" />
+        <title>{% block "title" %}{% endblock %}</title>
+
+        <link type="text/css" rel="stylesheet" href="{% static 'bootstrap/css/bootstrap.min.css' %}" />
+        <script type="text/javascript" src="{% static 'bootstrap/js/bootstrap.min.js' %}"></script>
+    </head>
+    <body class="body">
+        <div class="container-fluid">
+          <div class="row-fluid">
+            <div class="span2" style="background-color: #bbd8e9; border-radius: 3px;">
+                {% block "side_bar" %}{% endblock %}
+            </div>
+            <div class="span10" style="background-color: #dceaf4; border-radius: 3px;">
+                <div class="well">
+                    {% block "body" %}{% endblock %}
+                </div>
+            </div>
+          </div>
+        </div>
+    </body>
+</html>
