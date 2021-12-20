@@ -11,12 +11,11 @@ https://docs.djangoproject.com/en/4.0/ref/settings/
 """
 
 from pathlib import Path
-import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent
-SECRETS_JSON = str(BASE_DIR / 'secrets.json')
-os.environ.setdefault('GOOGLE_APPLICATION_CREDENTIALS', SECRETS_JSON)
+# SECRETS_JSON = str(BASE_DIR / 'secrets.json')
+# os.environ.setdefault('GOOGLE_APPLICATION_CREDENTIALS', SECRETS_JSON)
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.0/howto/deployment/checklist/
@@ -28,7 +27,6 @@ SECRET_KEY = 'django-insecure-2c-k%-pg9foig(dd%a()xks^4x7et0vo_=n!s34r0%4kcrw#kd
 DEBUG = True
 
 ALLOWED_HOSTS = ['localhost', '127.0.0.1']
-APP_PORT = 8000
 
 # Application definition
 
@@ -79,9 +77,12 @@ WSGI_APPLICATION = 'wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'sheets_db.backend',
+        'NAME': '19ZyiysCR9WBtECVYWF9sgGyXvk3xZK38rEfyk1a-l_E',
+        'CACHE_TTL': 60 * 60,
+        'APP_SECRET': str(BASE_DIR / 'secrets.json'),
+        'USER_SECRET': str(BASE_DIR / 'token.json'),
     }
 }
-
 
 # Password validation
 # https://docs.djangoproject.com/en/4.0/ref/settings/#auth-password-validators
@@ -123,12 +124,6 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/4.0/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-
-try:
-    from project_settings import *
-    PROJECT_CONFIGURED = True
-except ImportError:
-    PROJECT_CONFIGURED = False
 
 CACHES = {
     'default': {

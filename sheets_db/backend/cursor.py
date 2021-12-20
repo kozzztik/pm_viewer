@@ -1,7 +1,6 @@
 import itertools
 
 from django.db import DatabaseError
-from sheets_db import cache
 
 
 class AnyCondition:
@@ -18,9 +17,9 @@ class CursorTable:
     table = None
     condition = None
 
-    def __init__(self, name, condition):
+    def __init__(self, connection, name, condition):
         self.name = name
-        self.table = cache.DBCache.tables.get(name.lower(), None)
+        self.table = connection.tables.get(name.lower(), None)
         if self.table is None:
             raise DatabaseError(f'Table {name} not found')
         self.row = -1
@@ -77,6 +76,10 @@ class CursorField:
 class Cursor:
     fields = None
     tables = None
+    connection = None
+
+    def __init__(self, connection):
+        self.connection = connection
 
     def __enter__(self):
         return self
@@ -108,7 +111,8 @@ class Cursor:
     def _execute_select(self, columns, sources, conditions):
         condition = AnyCondition(conditions)
         self.tables = [
-            CursorTable(name.lower(), condition) for name in sources]
+            CursorTable(self.connection, name.lower(), condition)
+            for name in sources]
         self.fields = []
         for column in columns:
             table_name, field_name = column.split('.')

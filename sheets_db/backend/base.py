@@ -15,8 +15,7 @@ from django.db.backends.dummy.features import DummyDatabaseFeatures
 from django.db.backends.base.introspection import (
     BaseDatabaseIntrospection, FieldInfo, TableInfo,
 )
-from sheets_db import cache
-from sheets_db.backend import cursor
+from sheets_db.backend import connection
 
 
 def complain(*args, **kwargs):
@@ -50,7 +49,7 @@ class DatabaseIntrospection(BaseDatabaseIntrospection):
         """
         return [
             TableInfo(table.properties['title'], table.properties['sheetType'])
-            for table in cache.DBCache.tables.values()
+            for table in self.connection.connection.tables.values()
         ]
 
     def get_table_description(self, cursor, table_name):
@@ -58,7 +57,7 @@ class DatabaseIntrospection(BaseDatabaseIntrospection):
         Return a description of the table with the DB-API cursor.description
         interface.
         """
-        table_info = cache.DBCache.tables[table_name]
+        table_info = self.connection.connection.tables[table_name]
         'name type_code display_size internal_size precision scale null_ok '
         'default collation'
         return [
@@ -135,17 +134,13 @@ class DatabaseWrapper(BaseDatabaseWrapper):
     # do something raises complain; anything that tries
     # to rollback or undo something raises ignore.
 
-    def _cursor(self):
-        return cursor.Cursor()
-
-    ensure_connection = complain
     _commit = complain
     _rollback = ignore
     _close = ignore
     _savepoint = ignore
     _savepoint_commit = complain
     _savepoint_rollback = ignore
-    _set_autocommit = complain
+    _set_autocommit = ignore
     # Classes instantiated in __init__().
     client_class = DatabaseClient
     creation_class = DatabaseCreation
@@ -155,3 +150,25 @@ class DatabaseWrapper(BaseDatabaseWrapper):
 
     def is_usable(self):
         return True
+
+    def get_connection_params(self):
+        """Return a dict of parameters suitable for get_new_connection."""
+        return {
+            'NAME': self.settings_dict['NAME'],
+            'CACHE_TTL': self.settings_dict['CACHE_TTL'],
+            'APP_SECRET': str(self.settings_dict['APP_SECRET']),
+            'USER_SECRET': str(self.settings_dict['USER_SECRET']),
+            'ALIAS': self.alias,
+        }
+
+    def get_new_connection(self, conn_params):
+        """Open a connection to the database."""
+        return connection.Connection(conn_params)
+
+    def init_connection_state(self):
+        """Initialize the database connection settings."""
+        self.connection.connect()
+
+    def create_cursor(self, name=None):
+        """Create a cursor. Assume that a connection is established."""
+        return self.connection.cursor()
