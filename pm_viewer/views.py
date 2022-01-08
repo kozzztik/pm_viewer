@@ -1,5 +1,4 @@
 from django.views import generic
-from django.conf import settings
 from django import http
 from django import urls
 
@@ -12,7 +11,9 @@ class Home(generic.TemplateView):
 
     def get_context_data(self, **kwargs):
         teams = {}
-        for member in models.TeamMember.objects.all():
+        for member in models.TeamMember.objects.filter(
+                hire_date__year__gt=2019, hire_date__month__gt=8,
+                hire_date__day__gt=14):
             teams.setdefault(member.team, [])
             if member.name or member.email:
                 teams[member.team].append(member)

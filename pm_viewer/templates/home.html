@@ -10,6 +10,8 @@ Welcome
         <tr>
             <th>Имя</th>
             <th>Позиция</th>
+            <th>ЗП</th>
+            <th>Найм</th>
         </tr>
     </thead>
     <tbody>
@@ -19,6 +21,8 @@ Welcome
                 <tr>
                     <td>{{ member.name }}</td>
                     <td>{{ member.position }}</td>
+                    <td>{{ member.salary }}</td>
+                    <td>{{ member.hire_date|date:"Y-m-d" }}</td>
                 </tr>
             {% endfor %}
         {% endfor %}

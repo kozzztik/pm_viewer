@@ -9,6 +9,8 @@ class TeamMember(models.Model):
     grade = models.TextField(db_column="Грейд")
     evaluation = models.TextField(db_column="Оценка")
     mark = models.TextField(db_column="Метка")
+    salary = models.IntegerField(db_column="ЗП")
+    hire_date = models.DateField(db_column='Найм')
 
     class Meta:
         db_table = 'Team'

@@ -4,6 +4,7 @@ import json
 import os
 
 from google.oauth2.credentials import Credentials
+from google.auth import exceptions
 from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
 
@@ -43,7 +44,13 @@ class Connection:
         self.credentials = Credentials.from_authorized_user_file(
             self.user_secret_file)
         if self.credentials.expired:
-            self.credentials.refresh(Request())
+            try:
+                self.credentials.refresh(Request())
+            except exceptions.RefreshError as e:
+                logger.warning(e)
+                self.credentials = None
+                self.configured = False
+                return
         logger.warning(f"Initializing Sheets DB {self.alias}")
         data = cache.get(self.cache_key, None)
         if data:
@@ -105,5 +112,14 @@ class Table:
         for entry in row:
             self.fields.append(entry.get('formattedValue', None))
 
+    def _get_field_value(self, num, data):
+        if data is None:
+            return None
+        if len(data) == 1:
+            return list(data.values())[0]
+        raise NotImplementedError('unknown data format')
+
     def _read_row(self, row):
-        return [value.get('formattedValue', None) for value in row]
+        return [
+            self._get_field_value(i, value.get('effectiveValue', None))
+            for i, value in enumerate(row)]

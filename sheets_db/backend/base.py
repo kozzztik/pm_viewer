@@ -7,7 +7,8 @@ Each of these API functions, except connection.close(), raise
 ImproperlyConfigured.
 """
 
-from django.db.backends.base.base import BaseDatabaseWrapper
+from django import db
+from django.db.backends.base import base
 from django.db.backends.base.client import BaseDatabaseClient
 from django.db.backends.base.creation import BaseDatabaseCreation
 from django.db.backends.base.operations import BaseDatabaseOperations
@@ -27,8 +28,13 @@ def ignore(*args, **kwargs):
 
 
 class DatabaseOperations(BaseDatabaseOperations):
+    compiler_module = "sheets_db.backend.compiler"
+
     def quote_name(self, name):
         return name
+
+    def date_extract_sql(self, lookup_type, field_name):
+        return field_name
 
 
 class DatabaseClient(BaseDatabaseClient):
@@ -127,7 +133,8 @@ class DatabaseIntrospection(BaseDatabaseIntrospection):
         return {}
 
 
-class DatabaseWrapper(BaseDatabaseWrapper):
+class DatabaseWrapper(base.BaseDatabaseWrapper):
+    vendor = 'sheets_db'
     operators = {}
     # Override the base class implementations with null
     # implementations. Anything that tries to actually
@@ -147,6 +154,8 @@ class DatabaseWrapper(BaseDatabaseWrapper):
     features_class = DummyDatabaseFeatures
     introspection_class = DatabaseIntrospection
     ops_class = DatabaseOperations
+    # mappings needed for database debug wrapper magic
+    Database = db
 
     def is_usable(self):
         return True
