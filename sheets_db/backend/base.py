@@ -53,24 +53,23 @@ class DatabaseIntrospection(BaseDatabaseIntrospection):
         Return an unsorted list of TableInfo named tuples of all tables and
         views that exist in the database.
         """
-        return [
-            TableInfo(table.properties['title'], table.properties['sheetType'])
-            for table in self.connection.connection.tables.values()
-        ]
+        names = self.connection.connection.get_table_names()
+        return [TableInfo(name, 'GRID') for name in names]
 
     def get_table_description(self, cursor, table_name):
         """
         Return a description of the table with the DB-API cursor.description
         interface.
         """
-        table_info = self.connection.connection.tables[table_name]
+        tables = self.connection.connection.get_tables([table_name])
+        table = tables[table_name.lower()]
         'name type_code display_size internal_size precision scale null_ok '
         'default collation'
         return [
             FieldInfo(
                 field, "STRING", None, None, None, None, True, None, None,
             )
-            for field in table_info.fields
+            for field in table.fields
         ]
 
     get_indexes = complain

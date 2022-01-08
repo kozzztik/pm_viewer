@@ -7,10 +7,10 @@ from django.db.models.functions import datetime as django_datetime
 
 
 class BaseNode:
-    def __init__(self, node, connection, selector):
+    def __init__(self, node, cursor, selector):
         self.node = node
         self.selector = selector
-        self.connection = connection
+        self.cursor = cursor
 
     def check_row(self, table, row_number):
         raise NotImplementedError()
@@ -19,14 +19,14 @@ class BaseNode:
 class WhereNode(BaseNode):
     children = None
 
-    def __init__(self, node, connection, selector):
-        super(WhereNode, self).__init__(node, connection, selector)
+    def __init__(self, node, cursor, selector):
+        super(WhereNode, self).__init__(node, cursor, selector)
         self.children = []
         for child in node.children:
             if child.lookup_name not in lookup_names:
                 raise NotImplementedError(child)
             self.children.append(
-                lookup_names[child.lookup_name](child, connection, selector))
+                lookup_names[child.lookup_name](child, cursor, selector))
 
     def check_row(self, table, row_number):
         if self.node.connector == where.AND:
@@ -90,36 +90,32 @@ django_datetime.ExtractDay.as_sheets_db = extractor_wrapper(DayExtractor)
 
 class CompareNode(BaseNode):
     extractor = None
+    field = None
 
-    def __init__(self, node, connection, selector):
-        super(CompareNode, self).__init__(node, connection, selector)
+    def __init__(self, node, cursor, selector):
+        super(CompareNode, self).__init__(node, cursor, selector)
         db = selector.compiler.connection
         field_name, params = node.process_lhs(selector.compiler, db)
         if params and isinstance(params[0], FieldExtractor):
             self.extractor = params[0]
         _, self.compare_value = node.process_rhs(selector.compiler, db)
         self.lookup_name = node.lookup_name
-        self.table_name, field_name = field_name.lower().split('.', 1)
-        table = connection.tables.get(self.table_name)
-        if table is None:
-            raise DatabaseError(
-                f'Table {table} not found for field {field_name}')
-        self.field_number = None
-        for i, name in enumerate(table.fields):
-            if name.lower() == field_name:
-                self.field_number = i
+        field_name = field_name.lower()
+        for field in cursor.fields:
+            if field.full_name == field_name:
+                self.field = field
                 break
-        if self.field_number is None:
+        else:
             raise DatabaseError(
-                f'{field_name} not found in table {self.table_name}')
+                f'Field {field_name} not found in cursor context')
 
     def compare(self, db_value, compare_value):
         raise NotImplementedError()
 
     def check_row(self, table, row_number):
-        if table.name != self.table_name:
+        if table != self.field.table:
             return True
-        value = table.fields[self.field_number].value(row_number)
+        value = self.field.value(row_number)
         if self.extractor:
             value = self.extractor.extract(value)
         return self.compare(value, self.compare_value[0])
