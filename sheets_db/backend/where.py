@@ -12,7 +12,7 @@ class BaseNode:
         self.selector = selector
         self.cursor = cursor
 
-    def check_row(self, table, row_number):
+    def check_row(self, table):
         raise NotImplementedError()
 
 
@@ -28,17 +28,17 @@ class WhereNode(BaseNode):
             self.children.append(
                 lookup_names[child.lookup_name](child, cursor, selector))
 
-    def check_row(self, table, row_number):
+    def check_row(self, table):
         if self.node.connector == where.AND:
             for child in self.children:
-                result = child.check_row(table, row_number)
+                result = child.check_row(table)
                 if self.node.negated:
                     result = not result
                 if not result:
                     return False
             return True
         for child in self.children:
-            result = child.check_row(table, row_number)
+            result = child.check_row(table)
             if self.node.negated:
                 result = not result
             if result:
@@ -112,10 +112,10 @@ class CompareNode(BaseNode):
     def compare(self, db_value, compare_value):
         raise NotImplementedError()
 
-    def check_row(self, table, row_number):
+    def check_row(self, table):
         if table != self.field.table:
             return True
-        value = self.field.value(row_number)
+        value = self.field.value
         if self.extractor:
             value = self.extractor.extract(value)
         return self.compare(value, self.compare_value[0])

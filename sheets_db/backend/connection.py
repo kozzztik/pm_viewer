@@ -138,23 +138,22 @@ class Table:
     field_names = None
     extra = None
     condition = None
-    row = -1
+    row_id = -1
+    row_data = None
 
     def __init__(self, data):
         self.properties = data['properties']
         self.sheet_id = data['properties']['sheetId']
         self.name = data['properties']['title'].lower()
-        table_data = data['data'][0]['rowData']
-        self.data = []
-        for row in table_data:
-            if self.field_names is None:
-                self.field_names = []
-                self._init_fields(row['values'])
-            elif row:
-                self.data.append(self._read_row(row['values']))
+        self.data = data['data'][0]['rowData']
+        self._init_fields()
 
-    def _init_fields(self, row):
-        for entry in row:
+    def _init_fields(self):
+        self.field_names = []
+        if not self.data:
+            return
+        row = self.data.pop(0)
+        for entry in row['values']:
             self.field_names.append(entry.get('formattedValue', None))
 
     def _get_field_value(self, num, data):
@@ -164,28 +163,29 @@ class Table:
             return list(data.values())[0]
         raise NotImplementedError('unknown data format')
 
-    def _read_row(self, row):
-        return [
+    def _read_row(self):
+        self.row_id += 1
+        row = self.data.pop(0)
+        self.row_data = [
             self._get_field_value(i, value.get('effectiveValue', None))
-            for i, value in enumerate(row)]
+            for i, value in enumerate(row['values'])]
 
     def __iter__(self):
         return self
 
     def __next__(self):
-        if self.row is None:
+        if self.row_id is None:
             raise StopIteration()
-        check_row = self.row + 1
-        while check_row < len(self.data):
-            if self.condition.check_row(self, check_row):
-                self.row = check_row
+        while self.data:
+            self._read_row()
+            if self.condition.check_row(self):
                 return
-            check_row += 1
-        self.row = None
+        self.row_id = None
+        self.row_data = None
         raise StopIteration()
 
     @property
     def current_row(self):
-        if self.row is None:
+        if self.row_data is None:
             raise db.DatabaseError('Cursor error')
-        return self.table.data[self.row]
+        return self.row_data

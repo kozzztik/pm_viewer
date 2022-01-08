@@ -34,12 +34,11 @@ class CursorField:
     def __str__(self):
         return f'Cursor field {self.full_name}'
 
-    def value(self, row_number=None):
-        if row_number is None:
-            row_number = self.table.row
+    @property
+    def value(self):
         if self.number == -1:  # id field
-            return row_number
-        value = self.table.data[row_number][self.number]
+            return self.table.row_id
+        value = self.table.current_row[self.number]
         if value and isinstance(self.field, models.DateField):
             if isinstance(value, str):
                 value = datetime.datetime.strptime(value, '%d.%m.%Y')
@@ -85,7 +84,7 @@ class Cursor:
     def __next__(self):
         for table in self.tables.values():
             next(table)
-        return tuple(f.value() for f in self.fields)
+        return tuple(f.value for f in self.fields)
 
     def __iter__(self):
         return self
