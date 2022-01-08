@@ -52,6 +52,7 @@ class Cursor:
     fields = None
     tables = None
     connection = None
+    selector = None
 
     def __init__(self, connection):
         self.connection = connection
@@ -72,6 +73,7 @@ class Cursor:
         raise NotImplementedError('WTF')
 
     def _execute_select(self, selector):
+        self.selector = selector
         self.tables = self.connection.get_tables(selector.tables[0])
         self.fields = []
         for full_name, column in selector.columns:
@@ -90,13 +92,39 @@ class Cursor:
         return self
 
     def fetchone(self):
+        if self.selector.order_by:
+            result = self.fetchall()
+            return result[0] if result else None
         try:
             return next(self)
         except StopIteration:
             return None
 
     def fetchmany(self, itersize):
+        if self.selector.order_by:
+            return self.fetchall()
         return list(itertools.islice(self, itersize))
 
     def fetchall(self):
-        return list(self)
+        return self._apply_order(list(self))
+
+    def _apply_order(self, result):
+        # apply ordering in reverse - so first items will have more effect,
+        # as they applied last
+        for ordering, _ in reversed(self.selector.order_by):
+            compiler = self.selector.compiler
+            field_name = ordering.expression.as_sql(
+                compiler, compiler.connection)[0].lower()
+            for i, field in enumerate(self.fields):
+                if field.full_name == field_name:
+                    field_num = i
+                    break
+            else:
+                raise DatabaseError(
+                    f'Ordering field {field_name} not found in query')
+            result.sort(
+                # tricky way to awoid comparing None and int
+                # https://scipython.com/book2/chapter-4-the-core-python-language-ii/questions/sorting-a-list-containing-none/
+                key=lambda x: (x[field_num] is not None, x[field_num]),
+                reverse=ordering.descending)
+        return result

@@ -152,11 +152,10 @@ class Table:
         self.field_names = []
         if not self.data:
             return
-        row = self.data.pop(0)
-        for entry in row['values']:
+        for entry in self.data[0]['values']:
             self.field_names.append(entry.get('formattedValue', None))
 
-    def _get_field_value(self, num, data):
+    def _get_field_value(self, data):
         if data is None:
             return None
         if len(data) == 1:
@@ -164,11 +163,15 @@ class Table:
         raise NotImplementedError('unknown data format')
 
     def _read_row(self):
+        if self.row_id == -1:
+            # remove first row preseved for field names. It is kept there to
+            # not break caching
+            self.data.pop(0)
         self.row_id += 1
         row = self.data.pop(0)
         self.row_data = [
-            self._get_field_value(i, value.get('effectiveValue', None))
-            for i, value in enumerate(row['values'])]
+            self._get_field_value(value.get('effectiveValue', None))
+            for value in row['values']]
 
     def __iter__(self):
         return self
@@ -189,3 +192,9 @@ class Table:
         if self.row_data is None:
             raise db.DatabaseError('Cursor error')
         return self.row_data
+
+    def __str__(self):
+        return f'Table {self.name}({self.sheet_id})[{self.row_id}]'
+
+    def __repr__(self):
+        return str(self)
