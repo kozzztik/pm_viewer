@@ -137,7 +137,6 @@ class Table:
     data = None
     field_names = None
     extra = None
-    condition = None
     row_id = -1
     row_data = None
 
@@ -164,7 +163,7 @@ class Table:
 
     def _read_row(self):
         if self.row_id == -1:
-            # remove first row preseved for field names. It is kept there to
+            # remove first row reserved for field names. It is kept there to
             # not break caching
             self.data.pop(0)
         self.row_id += 1
@@ -179,13 +178,11 @@ class Table:
     def __next__(self):
         if self.row_id is None:
             raise StopIteration()
-        while self.data:
-            self._read_row()
-            if self.condition.check_row(self):
-                return
-        self.row_id = None
-        self.row_data = None
-        raise StopIteration()
+        if not self.data:
+            self.row_id = None
+            self.row_data = None
+            raise StopIteration()
+        self._read_row()
 
     @property
     def current_row(self):

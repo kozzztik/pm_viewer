@@ -4,18 +4,34 @@ import datetime
 from django.db import DatabaseError
 from django.db import models
 
-from sheets_db.backend import where
+from sheets_db.backend import expressions
 
 
-class CursorField:
-    name = None
+class BaseField:
+    column = None
+    alias = None
+    cursor = None
+
+    def __init__(self, cursor, alias, column):
+        self.column = column
+        self.alias = alias.lower()
+        self.cursor = cursor
+
+    @property
+    def value(self):
+        raise NotImplemented()
+
+    def __str__(self):
+        return f'Cursor field {self.alias}'
+
+
+class CursorField(BaseField):
     table = None
     number = None
 
-    def __init__(self, cursor, full_name, column):
-        self.field = column.output_field
-        self.full_name = full_name.lower()
-        table_name, self.name = self.full_name.split('.')
+    def __init__(self, cursor, alias, column):
+        super(CursorField, self).__init__(cursor, alias, column)
+        table_name, self.name = self.alias.split('.')
         self.table = cursor.tables.get(table_name)
         if self.table is None:
             raise DatabaseError(
@@ -31,15 +47,12 @@ class CursorField:
             raise DatabaseError(
                 f'Field {self.name} not found in table {table_name}')
 
-    def __str__(self):
-        return f'Cursor field {self.full_name}'
-
     @property
     def value(self):
         if self.number == -1:  # id field
             return self.table.row_id
         value = self.table.current_row[self.number]
-        if value and isinstance(self.field, models.DateField):
+        if value and isinstance(self.column.output_field, models.DateField):
             if isinstance(value, str):
                 value = datetime.datetime.strptime(value, '%d.%m.%Y')
             else:
@@ -48,11 +61,25 @@ class CursorField:
         return value
 
 
+class EvaluatedField(BaseField):
+    expression = None
+
+    def __init__(self, cursor, alias, column):
+        super(EvaluatedField, self).__init__(cursor, alias, column)
+        self.expression = expressions.BaseNode.build_node(column, cursor)
+
+    @property
+    def value(self):
+        return self.expression.evaluate()
+
+
 class Cursor:
     fields = None
     tables = None
     connection = None
     selector = None
+    fields_map = {}
+    condition = None
 
     def __init__(self, connection):
         self.connection = connection
@@ -65,7 +92,11 @@ class Cursor:
         return False
 
     def close(self):
-        pass
+        self.tables = None
+        self.fields = None
+        self.fields_map = None
+        self.condition = None
+        self.selector = None
 
     def execute(self, sql, params):
         if sql.action == 'SELECT':
@@ -77,15 +108,22 @@ class Cursor:
         self.tables = self.connection.get_tables(selector.tables[0])
         self.fields = []
         for full_name, column in selector.columns:
-            self.fields.append(CursorField(self, full_name, column))
-        # apply condition context
-        condition = where.WhereNode(selector.where, self, selector)
-        for table in self.tables.values():
-            table.condition = condition
+            if isinstance(full_name, str):
+                field = CursorField(self, full_name, column)
+            else:
+                field = EvaluatedField(self, full_name[1], column)
+            self.fields.append(field)
+            self.fields_map[field.alias] = field
+        self.condition = expressions.WhereNode(selector.where, self)
 
     def __next__(self):
         for table in self.tables.values():
-            next(table)
+            while True:
+                # here should be kind of strategy for joins, how to iterate
+                # multiple tables, but it is not implemented yet
+                next(table)
+                if self.condition.evaluate():
+                    break
         return tuple(f.value for f in self.fields)
 
     def __iter__(self):
@@ -113,17 +151,16 @@ class Cursor:
         # as they applied last
         for ordering, _ in reversed(self.selector.order_by):
             compiler = self.selector.compiler
-            field_name = ordering.expression.as_sql(
+            field_alias = ordering.expression.as_sql(
                 compiler, compiler.connection)[0].lower()
-            for i, field in enumerate(self.fields):
-                if field.full_name == field_name:
-                    field_num = i
-                    break
-            else:
+            field = self.fields_map.get(field_alias)
+            try:
+                field_num = self.fields.index(field)
+            except ValueError:
                 raise DatabaseError(
-                    f'Ordering field {field_name} not found in query')
+                    f'Ordering field {field_alias} not found in query')
             result.sort(
-                # tricky way to awoid comparing None and int
+                # tricky way to avoid comparing None and int
                 # https://scipython.com/book2/chapter-4-the-core-python-language-ii/questions/sorting-a-list-containing-none/
                 key=lambda x: (x[field_num] is not None, x[field_num]),
                 reverse=ordering.descending)

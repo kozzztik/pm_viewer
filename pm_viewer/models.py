@@ -10,6 +10,7 @@ class TeamMember(models.Model):
     evaluation = models.TextField(db_column="Оценка")
     mark = models.TextField(db_column="Метка")
     salary = models.IntegerField(db_column="ЗП")
+    salary_target = models.IntegerField(db_column='Таргет ЗП')
     hire_date = models.DateField(db_column='Найм')
 
     class Meta:
