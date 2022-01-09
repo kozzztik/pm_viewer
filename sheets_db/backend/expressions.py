@@ -3,6 +3,7 @@ from django.db.models.sql import where
 from django.db.models import lookups
 from django.db.models import expressions
 from django.db.models import aggregates
+from django.db.models.fields import related_lookups
 from django.db.models.functions import datetime as dj_datetime
 
 
@@ -262,4 +263,5 @@ expressions_map = {
     aggregates.Min: MinAggregation,
     aggregates.StdDev: None,
     aggregates.Variance: None,
+    related_lookups.RelatedIn: SimpleOperationNode,
 }

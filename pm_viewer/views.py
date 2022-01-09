@@ -19,7 +19,7 @@ class Home(generic.TemplateView):
         ).annotate(
             dif=dj_models.F('salary_target') - 30000,
             count_enps=dj_models.Min('enps_replies__value')
-        ).order_by('-dif'):
+        ).order_by('-dif').prefetch_related('enps_replies'):
             teams.setdefault(member.team, [])
             if member.name or member.email:
                 teams[member.team].append(member)
