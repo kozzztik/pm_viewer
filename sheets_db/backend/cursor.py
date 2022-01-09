@@ -3,6 +3,7 @@ import datetime
 
 from django.db import DatabaseError
 from django.db import models
+from django.db.models.sql import datastructures
 
 from sheets_db.backend import expressions
 
@@ -52,7 +53,8 @@ class CursorField(BaseField):
         if self.number == -1:  # id field
             return self.table.row_id
         value = self.table.current_row[self.number]
-        if value and isinstance(self.column.output_field, models.DateField):
+        if value and self.column and isinstance(
+                self.column.output_field, models.DateField):
             if isinstance(value, str):
                 value = datetime.datetime.strptime(value, '%d.%m.%Y')
             else:
@@ -73,6 +75,33 @@ class EvaluatedField(BaseField):
         return self.expression.evaluate()
 
 
+class JoinCondition(expressions.BaseNode):
+    def __init__(self, node, cursor):
+        super(JoinCondition, self).__init__(node, cursor)
+        self.table = cursor.tables[node.table_alias.lower()]
+        self.parent_table = cursor.tables[node.parent_alias.lower()]
+        self.columns = []
+        for parent_column, table_column in node.join_cols:
+            parent_field = cursor.get_or_create_field(
+                '.'.join([node.parent_alias, parent_column]))
+            table_field = cursor.get_or_create_field(
+                '.'.join([node.table_alias, table_column]))
+            self.columns.append((parent_field, table_field))
+
+    def evaluate(self):
+        return all([f1.value == f2.value for f1, f2 in self.columns])
+
+    def __iter__(self):
+        self.table.flush()
+        return self
+
+    def __next__(self):
+        while True:
+            result = next(self.table)
+            if self.evaluate():
+                return result
+
+
 class Cursor:
     fields = None
     tables = None
@@ -80,6 +109,8 @@ class Cursor:
     selector = None
     fields_map = {}
     condition = None
+    _base_table = None
+    joins = None
 
     def __init__(self, connection):
         self.connection = connection
@@ -103,9 +134,15 @@ class Cursor:
             return self._execute_select(sql)
         raise NotImplementedError('WTF')
 
+    def get_or_create_field(self, alias):
+        alias = alias.lower()
+        if alias in self.fields_map:
+            return self.fields_map[alias]
+        return CursorField(self, alias, None)
+
     def _execute_select(self, selector):
         self.selector = selector
-        self.tables = self.connection.get_tables(selector.tables[0])
+        self.tables = self.connection.get_tables(selector.tables.keys())
         self.fields = []
         for full_name, column in selector.columns:
             if isinstance(full_name, str):
@@ -115,15 +152,28 @@ class Cursor:
             self.fields.append(field)
             self.fields_map[field.alias] = field
         self.condition = expressions.WhereNode(selector.where, self)
+        self.joins = {}
+        for alias, table in selector.tables.items():
+            if isinstance(table, datastructures.BaseTable):
+                if self._base_table is not None:
+                    raise DatabaseError('Two base tables not supported')
+                self._base_table = self.tables[alias.lower()]
+            elif isinstance(table, datastructures.Join):
+                alias = alias.lower()
+                self.joins[alias] = JoinCondition(table, self)
+        if self._base_table is None:
+            raise DatabaseError('Base table not found')
+        for table in self.tables.values():
+            if table != self._base_table:
+                table.cached = True
 
     def __next__(self):
-        for table in self.tables.values():
-            while True:
-                # here should be kind of strategy for joins, how to iterate
-                # multiple tables, but it is not implemented yet
-                next(table)
-                if self.condition.evaluate():
-                    break
+        while True:
+            # here should be kind of strategy for joins, how to iterate
+            # multiple tables, but it is not implemented yet
+            next(self._base_table)
+            if self.condition.evaluate():
+                break
         return tuple(f.value for f in self.fields)
 
     def __iter__(self):

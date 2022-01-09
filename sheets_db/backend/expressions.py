@@ -2,6 +2,7 @@ from django import db
 from django.db.models.sql import where
 from django.db.models import lookups
 from django.db.models import expressions
+from django.db.models import aggregates
 from django.db.models.functions import datetime as dj_datetime
 
 
@@ -105,10 +106,7 @@ class ColumnNode(BaseNode):
         super(ColumnNode, self).__init__(node, cursor)
         alias, column = node.alias, node.target.column
         identifiers = (alias, column) if alias else (column,)
-        name = '.'.join(identifiers)
-        self.field = cursor.fields_map.get(name.lower())
-        if not self.field:
-            raise db.DatabaseError(f'Field {name} not found in query')
+        self.field = cursor.get_or_create_field('.'.join(identifiers))
 
     def evaluate(self):
         return self.field.value
@@ -147,6 +145,75 @@ class BaseExtractDate(BaseNode):
         class ParamExtractor(cls):
             param = extract_param
         return ParamExtractor
+
+
+class CountAggregation(BaseNode):
+    def __init__(self, node, cursor):
+        super(CountAggregation, self).__init__(node, cursor)
+        if len(node.source_expressions) != 1:
+            raise db.DatabaseError('Only one expression aggregates supported')
+        exp = node.source_expressions[0]
+        self.column = self.get_child(exp)
+        self.field = self.column.field
+
+    def evaluate(self):
+        counter = 0
+        values = set()
+        for _ in self.cursor.joins[self.field.table.name]:
+            value = self.field.value
+            if self.node.distinct:
+                values.add(value)
+            elif value is not None:
+                counter += 1
+        return len(values) if self.node.distinct else counter
+
+
+class AvgAggregation(CountAggregation):
+    def evaluate(self):
+        counter = 0
+        total_sum = 0
+        for _ in self.cursor.joins[self.field.table.name]:
+            value = self.field.value
+            if value is not None:
+                counter += 1
+                total_sum += value
+        return total_sum / counter if counter else None
+
+
+class SumAggregation(CountAggregation):
+    def evaluate(self):
+        total_sum = None
+        for _ in self.cursor.joins[self.field.table.name]:
+            value = self.field.value
+            if value is not None:
+                total_sum = (total_sum or 0) + value
+        return total_sum
+
+
+class MaxAggregation(CountAggregation):
+    def evaluate(self):
+        result = None
+        for _ in self.cursor.joins[self.field.table.name]:
+            value = self.field.value
+            if value is not None:
+                if result is None:
+                    result = value
+                else:
+                    result = max(result, value)
+        return result
+
+
+class MinAggregation(CountAggregation):
+    def evaluate(self):
+        result = None
+        for _ in self.cursor.joins[self.field.table.name]:
+            value = self.field.value
+            if value is not None:
+                if result is None:
+                    result = value
+                else:
+                    result = min(result, value)
+        return result
 
 
 expressions_map = {
@@ -188,4 +255,11 @@ expressions_map = {
     dj_datetime.ExtractHour: BaseExtractDate.extract('hour'),
     dj_datetime.ExtractMinute: BaseExtractDate.extract('minute'),
     dj_datetime.ExtractSecond: BaseExtractDate.extract('second'),
+    aggregates.Count: CountAggregation,
+    aggregates.Avg: AvgAggregation,
+    aggregates.Sum: SumAggregation,
+    aggregates.Max: MaxAggregation,
+    aggregates.Min: MinAggregation,
+    aggregates.StdDev: None,
+    aggregates.Variance: None,
 }

@@ -14,6 +14,8 @@ Welcome
             <th>ЗП</th>
             <th>Dif</th>
             <th>Найм</th>
+            <th>Отзывы</th>
+
         </tr>
     </thead>
     <tbody>
@@ -27,6 +29,7 @@ Welcome
                     <td>{{ member.salary }}</td>
                     <td>{{ member.dif }}</td>
                     <td>{{ member.hire_date|date:"Y-m-d" }}</td>
+                    <td>{{ member.count_enps }}</td>
                 </tr>
             {% endfor %}
         {% endfor %}

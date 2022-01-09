@@ -16,7 +16,10 @@ class Home(generic.TemplateView):
                 salary__lt=dj_models.F('salary_target') - 30000,
                 hire_date__year__isnull=False,
                 team__iendswith='core',
-        ).annotate(dif=dj_models.F('salary_target') - 30000).order_by('-dif'):
+        ).annotate(
+            dif=dj_models.F('salary_target') - 30000,
+            count_enps=dj_models.Min('enps_replies__value')
+        ).order_by('-dif'):
             teams.setdefault(member.team, [])
             if member.name or member.email:
                 teams[member.team].append(member)

@@ -173,6 +173,9 @@ class SQLCompiler(compiler.SQLCompiler):
             # Finally do cleanup - get rid of the joins we created above.
             self.query.reset_refcounts(refcounts_before)
 
+    def get_from_clause(self):
+        return self.query.alias_map
+
 
 class SQLInsertCompiler(compiler.SQLInsertCompiler, SQLCompiler):
     pass

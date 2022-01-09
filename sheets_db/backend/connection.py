@@ -139,6 +139,8 @@ class Table:
     extra = None
     row_id = -1
     row_data = None
+    _cached = False
+    _cache = None
 
     def __init__(self, data):
         self.properties = data['properties']
@@ -146,6 +148,23 @@ class Table:
         self.name = data['properties']['title'].lower()
         self.data = data['data'][0]['rowData']
         self._init_fields()
+
+    @property
+    def cached(self):
+        return self._cached
+
+    @cached.setter
+    def cached(self, value):
+        if self.row_id != -1:
+            raise ValueError('Cached can be set only on start')
+        self._cached = value
+        if self._cached and self._cache is None:
+            self._cache = []
+
+    def flush(self):
+        if not self._cached:
+            raise ValueError('Can flush only cached tables')
+        self.row_id = -1
 
     def _init_fields(self):
         self.field_names = []
@@ -165,12 +184,17 @@ class Table:
         if self.row_id == -1:
             # remove first row reserved for field names. It is kept there to
             # not break caching
-            self.data.pop(0)
+            if self._cached:
+                self.row_id += 1
+            else:
+                self.data.pop(0)
         self.row_id += 1
         row = self.data.pop(0)
         self.row_data = [
             self._get_field_value(value.get('effectiveValue', None))
             for value in row['values']]
+        if self._cached:
+            self._cache.append(self.row_data)
 
     def __iter__(self):
         return self
@@ -178,11 +202,16 @@ class Table:
     def __next__(self):
         if self.row_id is None:
             raise StopIteration()
+        if self._cached and self.row_id + 1 < len(self._cache):
+            self.row_id += 1
+            self.row_data = self._cache[self.row_id]
+            return self.row_id
         if not self.data:
             self.row_id = None
             self.row_data = None
             raise StopIteration()
         self._read_row()
+        return self.row_id
 
     @property
     def current_row(self):
